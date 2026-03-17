@@ -1,3 +1,4 @@
+```
 copy C:\afp-py-test-br\app.py C:\afp-py-test-br\package\app.py
 cd C:\afp-py-test-br\package
 del C:\afp-py-test-br\agent-afp-py-test-br.zip
