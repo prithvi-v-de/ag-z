@@ -341,9 +341,7 @@ docker push $ACCOUNT.dkr.ecr.us-east-2.amazonaws.com/agent-z:latest
 
 
 
-
-
-//correction: 
+```bash
 def lambda_handler(event, context):
     import io
     with app.test_request_context(
@@ -363,3 +361,5 @@ def lambda_handler(event, context):
             return {"statusCode": response.status_code, "headers": headers, "body": body}
         except Exception as e:
             return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+```
+
