@@ -336,3 +336,30 @@ docker push $ACCOUNT.dkr.ecr.us-east-2.amazonaws.com/agent-z:latest
 
 4. Terminate the instance
 5. App Runner console > your service > Actions > **"Deploy"**
+
+
+
+
+
+
+
+//correction: 
+def lambda_handler(event, context):
+    import io
+    with app.test_request_context(
+        path=event.get("rawPath", "/"),
+        method=event.get("requestContext", {}).get("http", {}).get("method", "GET"),
+        headers=event.get("headers", {}),
+        data=event.get("body", ""),
+        query_string=event.get("rawQueryString", ""),
+    ):
+        try:
+            rv = app.full_dispatch_request()
+            response = app.make_response(rv)
+            body = response.get_data(as_text=True)
+            headers = dict(response.headers)
+            if response.status_code in (301, 302, 303, 307, 308):
+                return {"statusCode": response.status_code, "headers": headers, "body": body}
+            return {"statusCode": response.status_code, "headers": headers, "body": body}
+        except Exception as e:
+            return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
