@@ -1,0 +1,14 @@
+version: 1.0
+runtime: python311
+build:
+  commands:
+    build:
+      - pip install -r backend/requirements.txt
+run:
+  command: gunicorn --bind 0.0.0.0:8080 --workers 2 --timeout 120 --chdir backend app:app
+  network:
+    port: 8080
+    env: PORT
+  env:
+    - name: PORT
+      value: "8080"
