@@ -173,3 +173,174 @@ First request takes 10-15 seconds (cold start). You should see: `{"status":"heal
 **Authorize GitHub** — open browser:
 ```
 https://abc123xyz.lambda-url.us-east-2.on.aws/authorize?session_id=test1
+
+
+
+
+
+
++==============
++--------------
++==============
+
+Three steps, all in your browser. Replace `YOUR_URL` with your actual App Runner domain everywhere below.
+
+---
+
+**Test 1 — Check it's alive:**
+
+Open your browser, go to:
+
+```
+https://YOUR_URL/health
+```
+
+You should see:
+
+```json
+{"status":"healthy"}
+```
+
+If you see that, the service is running. If you get an error, the deploy isn't done yet or something's wrong.
+
+---
+
+**Test 2 — Authorize GitHub:**
+
+Open your browser, go to:
+
+```
+https://YOUR_URL/authorize?session_id=test1
+```
+
+What happens:
+1. Your browser redirects to GitHub
+2. GitHub shows a page saying "Agent-Z wants to access your account"
+3. Click **"Authorize"**
+4. You get redirected back to your App Runner URL
+5. You see JSON like this:
+
+```json
+{
+  "status": "authorized",
+  "session_id": "test1",
+  "message": "GitHub authorized! Now POST to /run to use the agent."
+}
+```
+
+That `session_id` value (`test1`) is what ties your token to your requests. Remember it.
+
+---
+
+**Test 3 — Run the agent:**
+
+You need to send a POST request. Since you have no terminal tools, use your browser's developer console:
+
+1. Open any tab in your browser (can be any website, even a blank tab)
+2. Press **F12** on your keyboard — developer tools open
+3. Click the **"Console"** tab at the top of the dev tools panel
+4. Paste this and press Enter:
+
+```javascript
+fetch('https://YOUR_URL/run', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    action: 'org_info',
+    target: 'aws',
+    session_id: 'test1'
+  })
+}).then(r => r.json()).then(d => console.log(JSON.stringify(d, null, 2)))
+```
+
+**IMPORTANT:** Replace `YOUR_URL` with your actual App Runner domain before pasting.
+
+Wait a few seconds. You'll see the response printed in the console:
+
+```json
+{
+  "status": "complete",
+  "action": "org_info",
+  "target": "aws",
+  "github_data": {
+    "login": "aws",
+    "name": "Amazon Web Services",
+    "public_repos": 542,
+    "recent_repos": [
+      {"name": "some-repo", "stars": 1200, "language": "Python"}
+    ]
+  },
+  "bedrock_analysis": "AWS maintains a large GitHub presence with 542 public repositories...",
+  "trace": [
+    "✅ Scope check passed for 'org_info'",
+    "🔑 GitHub token available",
+    "📦 GitHub data fetched for org_info/aws",
+    "🤖 Bedrock analysis complete"
+  ],
+  "elapsed_ms": 2340
+}
+```
+
+The `trace` array shows you every node the agent went through. The `bedrock_analysis` is Claude's summary of the GitHub data.
+
+---
+
+**Try other actions — same process, just change the body:**
+
+List repos for an org:
+
+```javascript
+fetch('https://YOUR_URL/run', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    action: 'list_repos',
+    target: 'langchain-ai',
+    session_id: 'test1'
+  })
+}).then(r => r.json()).then(d => console.log(JSON.stringify(d, null, 2)))
+```
+
+Get user info:
+
+```javascript
+fetch('https://YOUR_URL/run', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    action: 'user_info',
+    target: 'octocat',
+    session_id: 'test1'
+  })
+}).then(r => r.json()).then(d => console.log(JSON.stringify(d, null, 2)))
+```
+
+---
+
+**What the responses mean:**
+
+| `status: "complete"` | Agent finished all 4 nodes successfully |
+| `status: "needs_auth"` | You didn't authorize yet — go to `/authorize?session_id=test1` first |
+| `status: "rejected"` | AgentCore Identity blocked it — not a GitHub action |
+| `github_data` | Raw data from GitHub API |
+| `bedrock_analysis` | Claude's summary of that data |
+| `trace` | Every agent node that ran, in order |
+| `elapsed_ms` | Total time in milliseconds |
+| `error` | If something went wrong, this tells you what |
+
+---
+
+**If you get `"needs_auth"`:** Your session expired or you used a different session_id. Go back to Test 2 and authorize again with the same session_id you're using in `/run`.
+
+**If you get `"rejected"`:** The scope check failed. Make sure your `action` is one of `org_info`, `list_repos`, or `user_info`.
+
+**If `bedrock_analysis` is empty but `github_data` has data:** Bedrock model access isn't enabled or the IAM role doesn't have permissions. Check Step 2 (model access) and Step 5 (IAM role) from the deploy guide.
+
+
+
+
+
+
+
+
+
