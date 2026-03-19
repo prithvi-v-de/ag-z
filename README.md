@@ -1,12 +1,18 @@
 ```
-copy C:\afp-py-test-br\app.py C:\afp-py-test-br\package\app.py
-cd C:\afp-py-test-br\package
-del C:\afp-py-test-br\agent-afp-py-test-br.zip
+
+cd /d C:\afp-py-test-br
+rmdir /s /q package
+mkdir package
+pip install --target .\package --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all: flask requests langgraph langchain-core
+
+
+copy app.py .\package\app.py
+cd package
+del C:\afp-py-test-br\agent-z.zip
 tar -a -cf C:\afp-py-test-br\agent-z.zip *
 cd C:\afp-py-test-br
-```
 
-Now continue in the AWS Console. Every step below is clicking in your browser.
+```
 
 ---
 
@@ -132,8 +138,32 @@ Value:  anthropic.claude-haiku-4-5-20251001-v1:0
 Configure routes:
 
 ```
-You'll see a default route ANY /. That's fine — it catches everything.
-Click "Next"
+In the left sidebar, click "Routes" (under Develop)
+Click "Create"
+Method: ANY
+Path: /{proxy+}
+Click "Create"
+Now you'll see the route listed. Click on ANY /{proxy+}
+Click "Attach integration"
+Select your Lambda function afp-py-test-lambdafunc
+Click "Attach integration"
+
+Now create one more route for the root path:
+
+Click "Routes" again in the left sidebar
+Click "Create"
+Method: ANY
+Path: /
+Click "Create"
+Click on ANY /
+Click "Attach integration"
+Select afp-py-test-lambdafunc
+Click "Attach integration"
+
+Now deploy:
+
+Left sidebar > click "Stages" (under Deploy)
+Click the "Deploy" button (top right)
 ```
 Stages:
 ```
@@ -206,11 +236,15 @@ First request takes 10-15 seconds (cold start). You should see: `{"status":"heal
 ```
 https://abc123xyz.lambda-url.us-east-2.on.aws/authorize?session_id=test1
 
+
+
+
 ```
 Browser: https://YOUR_API_URL/health
 Browser: https://YOUR_API_URL/authorize?session_id=test1
 F12 > Console > the fetch call to /run
 
+```
 
 +==============
 +--------------
