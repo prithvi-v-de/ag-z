@@ -118,19 +118,51 @@ Value:  anthropic.claude-haiku-4-5-20251001-v1:0
 
 ---
 
-## STEP 7: Create Function URL
+## STEP 7: Create API/GWAY
 
-1. Still on Configuration tab
-2. Left side > click **"Function URL"**
-3. Click **"Create function URL"**
-4. Auth type: **NONE**
-5. Click **"Save"**
-6. You'll see a URL appear like:
-```
-https://abc123xyz.lambda-url.us-east-2.on.aws
-```
 
-7. Copy this URL
+- AWS Console > search "API Gateway" > click it
+- Find "HTTP API" > click "Build"
+- Click "Add integration"
+- Integration type: Lambda
+- Lambda function: select afp-py-test-lambdafunc (your function)
+- API name: xyz-api
+- Click "Next"
+
+Configure routes:
+
+```
+You'll see a default route ANY /. That's fine — it catches everything.
+Click "Next"
+```
+Stages:
+```
+Stage name: leave as $default
+Auto-deploy: ON
+Click "Next"
+```
+Review:
+```
+Click "Create"
+
+You'll see an "Invoke URL" — looks like:
+https://abc123xyz.execute-api.us-east-1.amazonaws.com
+Copy that URL. That's your endpoint — works exactly like the Function URL would have.
+```
+Now continue with the same steps:
+Update APP_URL in Lambda:
+```
+Lambda > Configuration > Environment variables > Edit
+Change APP_URL to your API Gateway URL
+Save
+```
+Update GitHub OAuth callback:
+```
+github.com > Developer settings > your app
+Change callback to: https://abc123xyz.execute-api.us-east-1.amazonaws.com/callback
+Change homepage too
+Update application
+```
 
 ---
 
@@ -174,9 +206,10 @@ First request takes 10-15 seconds (cold start). You should see: `{"status":"heal
 ```
 https://abc123xyz.lambda-url.us-east-2.on.aws/authorize?session_id=test1
 
-
-
-
+```
+Browser: https://YOUR_API_URL/health
+Browser: https://YOUR_API_URL/authorize?session_id=test1
+F12 > Console > the fetch call to /run
 
 
 +==============
@@ -335,6 +368,9 @@ fetch('https://YOUR_URL/run', {
 **If you get `"rejected"`:** The scope check failed. Make sure your `action` is one of `org_info`, `list_repos`, or `user_info`.
 
 **If `bedrock_analysis` is empty but `github_data` has data:** Bedrock model access isn't enabled or the IAM role doesn't have permissions. Check Step 2 (model access) and Step 5 (IAM role) from the deploy guide.
+
+
+-------
 
 
 
