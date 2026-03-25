@@ -410,7 +410,10 @@ fetch('https://YOUR_URL/run', {
 
 
 
-
+cd /d C:\afp-py-test-br
+rmdir /s /q package
+mkdir deployment_package
+pip install --target .\deployment_package --platform manylinux2014_aarch64 --implementation cp --python-version 3.12 --only-binary=:all: bedrock-agentcore langgraph langchain-core requests
 
 
 
