@@ -12,9 +12,21 @@
   "paths": {
     "/orgs/{org}": {
       "get": {
+        "summary": "Get organization info",
+        "operationId": "getOrgInfo",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Successful response"
           }
         }
       }
