@@ -14,12 +14,15 @@ REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-opus-4-5-20251101-v1:0")
 APP_URL = os.getenv("APP_URL", "http://localhost:8080")
 GITHUB_IDENTITY_ARN = os.getenv("GITHUB_AGENT_IDENTITY_ARN", "")
+GH_BASE = "https://gitprod.statestr.com"
+GH_API = "https://gitprod.statestr.com/api/v3"
 bedrock = boto3.client("bedrock-runtime", region_name=REGION)
 token_store = {}
 
 def github_get(path, token):
-    log.info(f"[github] GET https://api.github.com{path}")
-    r = requests.get(f"https://api.github.com{path}", headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3+json"})
+    url = f"{GH_API}{path}"
+    log.info(f"[github] GET {url}")
+    r = requests.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3+json"})
     log.info(f"[github] {r.status_code}")
     return r.json()
 
@@ -144,7 +147,7 @@ def lambda_handler(event, context):
             params = parse_qs(qs)
             sid = params.get("session_id", [str(uuid.uuid4())])[0]
             p = {"client_id": os.getenv("GITHUB_CLIENT_ID"), "redirect_uri": f"{APP_URL}/callback", "scope": "repo read:user read:org", "state": json.dumps({"session_id": sid})}
-            url = "https://github.com/login/oauth/authorize?" + "&".join(f"{k}={v}" for k, v in p.items())
+            url = f"{GH_BASE}/login/oauth/authorize?" + "&".join(f"{k}={v}" for k, v in p.items())
             return {"statusCode": 302, "headers": {"Location": url}, "body": ""}
 
         if path == "/callback":
@@ -155,7 +158,7 @@ def lambda_handler(event, context):
             sid = state.get("session_id", "")
             if not code:
                 return err(400, "No auth code")
-            resp = requests.post("https://github.com/login/oauth/access_token", headers={"Accept": "application/json"}, data={"client_id": os.getenv("GITHUB_CLIENT_ID"), "client_secret": os.getenv("GITHUB_CLIENT_SECRET"), "code": code})
+            resp = requests.post(f"{GH_BASE}/login/oauth/access_token", headers={"Accept": "application/json"}, data={"client_id": os.getenv("GITHUB_CLIENT_ID"), "client_secret": os.getenv("GITHUB_CLIENT_SECRET"), "code": code})
             td = resp.json()
             if "access_token" not in td:
                 return err(400, f"Token exchange failed: {td}")
