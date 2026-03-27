@@ -61,8 +61,9 @@ def lambda_handler(event, context):
         if event.get("isBase64Encoded") and body:
             import base64
             body = base64.b64decode(body).decode("utf-8")
+        content_type = headers.get("content-type", "")
         with app.test_client() as client:
-            resp = client.open(path, method=method, headers=headers, data=body, query_string=qs)
+            resp = client.open(path, method=method, data=body, query_string=qs, content_type=content_type)
             return {
                 "statusCode": resp.status_code,
                 "headers": dict(resp.headers),
@@ -71,4 +72,4 @@ def lambda_handler(event, context):
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return {"statusCode": 500, "body": json.dumps({"error": str(e), "type": type(e).__name__})}
+        return {"statusCode": 500, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": str(e), "type": type(e).__name__})}
