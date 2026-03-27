@@ -56,19 +56,70 @@ def lambda_handler(event, context):
         method = rc.get("method", "GET")
         path = event.get("rawPath", "/")
         qs = event.get("rawQueryString", "")
-        headers = dict(event.get("headers", {}))
+        headers = event.get("headers", {})
         body = event.get("body") or ""
         if event.get("isBase64Encoded") and body:
             import base64
             body = base64.b64decode(body).decode("utf-8")
-        content_type = headers.get("content-type", "")
-        with app.test_client() as client:
-            resp = client.open(path, method=method, data=body, query_string=qs, content_type=content_type)
-            return {
-                "statusCode": resp.status_code,
-                "headers": dict(resp.headers),
-                "body": resp.get_data(as_text=True),
+
+        # Manual routing — no Flask needed for Lambda
+        if path == "/health":
+            return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"status": "healthy"})}
+
+        elif path == "/authorize":
+            from urllib.parse import parse_qs
+            params = parse_qs(qs)
+            sid = params.get("session_id", [str(uuid.uuid4())])[0]
+            p = {
+                "client_id": os.getenv("GITHUB_CLIENT_ID"),
+                "redirect_uri": f"{APP_URL}/callback",
+                "scope": "repo read:user read:org",
+                "state": json.dumps({"session_id": sid}),
             }
+            url = f"https://github.com/login/oauth/authorize?{'&'.join(f'{k}={v}' for k, v in p.items())}"
+            return {"statusCode": 302, "headers": {"Location": url}, "body": ""}
+
+        elif path == "/callback":
+            from urllib.parse import parse_qs
+            params = parse_qs(qs)
+            code = params.get("code", [""])[0]
+            state = json.loads(params.get("state", ["{}"])[0])
+            sid = state.get("session_id", "")
+            if not code:
+                return {"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "No auth code"})}
+            resp = requests.post("https://github.com/login/oauth/access_token",
+                headers={"Accept": "application/json"},
+                data={"client_id": os.getenv("GITHUB_CLIENT_ID"), "client_secret": os.getenv("GITHUB_CLIENT_SECRET"), "code": code})
+            td = resp.json()
+            if "access_token" not in td:
+                return {"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Token exchange failed", "details": td})}
+            token_store[sid] = td
+            log.info(f"[oauth] Token stored for {sid}")
+            return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"status": "authorized", "session_id": sid, "message": "GitHub authorized! POST to /run to use the agent."})}
+
+        elif path == "/run" and method == "POST":
+            data = json.loads(body) if body else {}
+            action = data.get("action", "org_info")
+            target = data.get("target", "")
+            sid = data.get("session_id", "")
+            if not target:
+                return {"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Missing target"})}
+            if not sid:
+                return {"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Missing session_id"})}
+            log.info(f"AGENT RUN: action={action} target={target}")
+            import time as t
+            t0 = t.time()
+            result = agent.invoke({"session_id": sid, "action": action, "target": target, "status": "", "github_data": {}, "bedrock_analysis": "", "error": "", "messages": []})
+            elapsed = (t.time() - t0) * 1000
+            log.info(f"AGENT DONE ({elapsed:.0f}ms)")
+            return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"status": result.get("status"), "action": action, "target": target, "github_data": result.get("github_data", {}), "bedrock_analysis": result.get("bedrock_analysis", ""), "error": result.get("error", ""), "trace": result.get("messages", []), "elapsed_ms": round(elapsed)})}
+
+        elif path == "/":
+            return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"service": "Agent-Z", "description": "LangGraph + AgentCore Identity + Bedrock"})}
+
+        else:
+            return {"statusCode": 404, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Not found"})}
+
     except Exception as e:
         import traceback
         traceback.print_exc()
