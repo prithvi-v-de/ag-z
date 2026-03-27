@@ -33,3 +33,42 @@
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+######
+
+
+
+
+
+def lambda_handler(event, context):
+    try:
+        rc = event.get("requestContext", {}).get("http", {})
+        method = rc.get("method", "GET")
+        path = event.get("rawPath", "/")
+        qs = event.get("rawQueryString", "")
+        headers = dict(event.get("headers", {}))
+        body = event.get("body") or ""
+        if event.get("isBase64Encoded") and body:
+            import base64
+            body = base64.b64decode(body).decode("utf-8")
+        with app.test_client() as client:
+            resp = client.open(path, method=method, headers=headers, data=body, query_string=qs)
+            return {
+                "statusCode": resp.status_code,
+                "headers": dict(resp.headers),
+                "body": resp.get_data(as_text=True),
+            }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"statusCode": 500, "body": json.dumps({"error": str(e), "type": type(e).__name__})}
