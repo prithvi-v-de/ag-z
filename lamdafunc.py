@@ -73,10 +73,17 @@ def node_fetch_github(state):
     if action == "org_info":
         data = github_get(f"/orgs/{target}", token)
         repos = github_get(f"/orgs/{target}/repos?per_page=5&sort=updated", token)
-        data["recent_repos"] = [{"name": r["name"], "stars": r.get("stargazers_count", 0), "language": r.get("language")} for r in repos[:5]]
+        if isinstance(repos, list):
+            data["recent_repos"] = [{"name": r["name"], "stars": r.get("stargazers_count", 0), "language": r.get("language")} for r in repos[:5]]
+        else:
+            data["recent_repos"] = []
+            data["repos_error"] = repos
     elif action == "list_repos":
         repos = github_get(f"/orgs/{target}/repos?per_page=10&sort=updated", token)
-        data = {"org": target, "repos": [{"name": r["name"], "stars": r.get("stargazers_count", 0), "language": r.get("language"), "description": (r.get("description") or "")[:80]} for r in repos[:10]]}
+        if isinstance(repos, list):
+            data = {"org": target, "repos": [{"name": r["name"], "stars": r.get("stargazers_count", 0), "language": r.get("language"), "description": (r.get("description") or "")[:80]} for r in repos[:10]]}
+        else:
+            data = {"org": target, "error": repos}
     elif action == "user_info":
         data = github_get(f"/users/{target}", token)
     else:
