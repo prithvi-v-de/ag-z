@@ -410,6 +410,14 @@ fetch('https://YOUR_URL/run', {
 
 
 
+fetch('https://abt1lt1wnd.execute-api.us-east-1.amazonaws.com/run', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({action:'user_info', target:'v885967', session_id:'test7'})
+}).then(r=>r.json()).then(d=>console.log(JSON.stringify(d,null,2)))
+
+
+
 cd /d C:\afp-py-test-br
 rmdir /s /q package
 mkdir deployment_package
